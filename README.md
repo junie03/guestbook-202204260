@@ -47,3 +47,9 @@ npm test          # Vitest + PGlite(인메모리 Postgres). 실제 Neon DB는 �
 npm run typecheck
 npm run lint
 ```
+
+## 배포
+
+- GitHub (public): https://github.com/junie03/guestbook-202204260
+- Vercel 프로젝트 `guestbook-202204260`이 이 저장소의 `master` 브랜치와 연결되어 있어, push하면 자동으로 다시 배포된다.
+- Vercel 프로젝트 환경변수에 `DATABASE_URL`(Neon `guestbook-202204260` 연결 문자열)이 등록되어 있어야 한다.
