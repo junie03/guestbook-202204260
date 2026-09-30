@@ -3,6 +3,7 @@
 이름, 메시지, 작성 시각이 쌓이는 미니 방명록. 회원가입 없이, 글을 쓸 때 정한 **글 비밀번호**로만 자기 글을 수정·삭제할 수 있다.
 
 - 개발자: 이주표 (202204260)
+- 배포: https://guestbook-202204260.vercel.app
 - 기술 스택: Next.js (App Router) + TypeScript, Neon Postgres, Vercel
 - 개발 방식: SDD — `/grill-with-docs` → `/to-spec` → `/to-tickets` → `/implement` → `/code-review`
 
@@ -50,6 +51,7 @@ npm run lint
 
 ## 배포
 
+- 배포 주소: https://guestbook-202204260.vercel.app
 - GitHub (public): https://github.com/junie03/guestbook-202204260
 - Vercel 프로젝트 `guestbook-202204260`이 이 저장소의 `master` 브랜치와 연결되어 있어, push하면 자동으로 다시 배포된다.
 - Vercel 프로젝트 환경변수에 `DATABASE_URL`(Neon `guestbook-202204260` 연결 문자열)이 등록되어 있어야 한다.
