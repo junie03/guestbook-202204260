@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 방명록 (guestbook-202204260)
 
-## Getting Started
+이름, 메시지, 작성 시각이 쌓이는 미니 방명록. 회원가입 없이, 글을 쓸 때 정한 **글 비밀번호**로만 자기 글을 수정·삭제할 수 있다.
 
-First, run the development server:
+- 개발자: 이주표 (202204260)
+- 기술 스택: Next.js (App Router) + TypeScript, Neon Postgres, Vercel
+- 개발 방식: SDD — `/grill-with-docs` → `/to-spec` → `/to-tickets` → `/implement` → `/code-review`
+
+## 문서
+
+- 용어집: [CONTEXT.md](CONTEXT.md)
+- 결정 기록: [docs/adr/](docs/adr/)
+- 스펙과 티켓: [.scratch/guestbook/](.scratch/guestbook/)
+
+## 로컬에서 실행하기
+
+1. 의존성 설치
+
+   ```bash
+   npm install
+   ```
+
+2. 프로젝트 루트에 `.env.local`을 만들고 Neon 연결 문자열을 넣는다 (GitHub에는 올라가지 않는다)
+
+   ```
+   DATABASE_URL=postgresql://...
+   ```
+
+3. Neon DB에 테이블을 만든다 (여러 번 실행해도 안전하다)
+
+   ```bash
+   npm run db:setup
+   ```
+
+   스크립트 대신 Neon 대시보드의 **SQL Editor**에 [db/schema.sql](db/schema.sql) 내용을 붙여넣고 실행해도 된다.
+
+4. 개발 서버 실행 → http://localhost:3000
+
+   ```bash
+   npm run dev
+   ```
+
+## 테스트
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm test          # Vitest + PGlite(인메모리 Postgres). 실제 Neon DB는 건드리지 않는다
+npm run typecheck
+npm run lint
 ```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
