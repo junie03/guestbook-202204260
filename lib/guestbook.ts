@@ -1,5 +1,5 @@
 import type { Db } from "./db";
-import { hashPassword } from "./password";
+import { hashPassword, verifyPassword } from "./password";
 
 /** 목록에 보이는 Entry. 글 비밀번호(해시)는 절대 포함하지 않는다. */
 export type Entry = {
@@ -18,11 +18,21 @@ export type FieldErrors = Partial<Record<Field, string>>;
 
 export type CreateResult = { ok: true; entry: Entry } | { ok: false; errors: FieldErrors };
 
+export type EditInput = { message: string; password: string };
+
+export type EditResult =
+  | { ok: true; entry: Entry }
+  | { ok: false; reason: "invalid"; errors: Pick<FieldErrors, "message"> }
+  | { ok: false; reason: "wrong_password" }
+  | { ok: false; reason: "not_found" };
+
 export type Guestbook = {
   /** 규칙을 어기면 아무것도 저장하지 않고 칸별 오류를 돌려준다. */
   create(input: EntryInput): Promise<CreateResult>;
   /** 모든 Entry, 작성 시각 최신순 */
   list(): Promise<Entry[]>;
+  /** 글 비밀번호가 맞으면 메시지만 바꾼다. 이름·작성 시각은 그대로다. */
+  edit(id: number, input: EditInput): Promise<EditResult>;
 };
 
 type Row = { id: number; name: string; message: string; created_at: Date; updated_at: Date | null };
@@ -50,12 +60,19 @@ const MESSAGES = {
   password: "비밀번호는 4~30자로 입력해 주세요.",
 } as const;
 
+/** 메시지 규칙: 작성과 수정이 함께 쓴다. 앞뒤 공백을 지운 값과, 어겼다면 안내 문구를 돌려준다. */
+function checkMessage(raw: string): { message: string; error?: string } {
+  const message = raw.trim();
+  return within(message, 1, 500) ? { message } : { message, error: MESSAGES.message };
+}
+
 /** 이름·메시지는 앞뒤 공백을 지운 뒤 검사하고, 비밀번호는 공백까지 그대로 검사한다. */
 function validate(input: EntryInput): { values: EntryInput; errors: FieldErrors } {
-  const values = { name: input.name.trim(), message: input.message.trim(), password: input.password };
+  const { message, error: messageError } = checkMessage(input.message);
+  const values = { name: input.name.trim(), message, password: input.password };
   const errors: FieldErrors = {};
   if (!within(values.name, 1, 20)) errors.name = MESSAGES.name;
-  if (!within(values.message, 1, 500)) errors.message = MESSAGES.message;
+  if (messageError) errors.message = messageError;
   if (!within(values.password, 4, 30)) errors.password = MESSAGES.password;
   return { values, errors };
 }
@@ -78,6 +95,22 @@ export function createGuestbook(db: Db, clock: { now: () => Date } = { now: () =
     async list() {
       const rows = await db.query<Row>(`select ${COLUMNS} from entries order by created_at desc, id desc`);
       return rows.map(toEntry);
+    },
+
+    async edit(id, input) {
+      const { message, error } = checkMessage(input.message);
+      if (error) return { ok: false, reason: "invalid", errors: { message: error } };
+
+      const [found] = await db.query<{ password_hash: string }>("select password_hash from entries where id = $1", [id]);
+      if (!found) return { ok: false, reason: "not_found" };
+      if (!(await verifyPassword(input.password, found.password_hash))) return { ok: false, reason: "wrong_password" };
+
+      // 비밀번호를 확인하는 사이에 지워졌다면 update가 아무 행도 돌려주지 않는다.
+      const [row] = await db.query<Row>(
+        `update entries set message = $2, updated_at = $3 where id = $1 returning ${COLUMNS}`,
+        [id, message, clock.now()],
+      );
+      return row ? { ok: true, entry: toEntry(row) } : { ok: false, reason: "not_found" };
     },
   };
 }

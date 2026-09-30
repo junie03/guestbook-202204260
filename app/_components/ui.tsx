@@ -5,6 +5,8 @@ export const button =
 export const subtleButton =
   "rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
 
+export const WRONG_PASSWORD = "비밀번호가 일치하지 않습니다.";
+
 /** 입력칸 아래에 붙는 빨간 안내 문구. 없으면 아무것도 그리지 않는다. */
 export function FieldError({ message }: { message?: string }) {
   if (!message) return null;

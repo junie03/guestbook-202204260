@@ -156,3 +156,70 @@ describe("입력값 검증", () => {
     expect((await guestbook.create({ ...valid, password: " ab " })).ok).toBe(true);
   });
 });
+
+/** 테스트용: Entry 하나를 남기고 그 Entry를 돌려준다 */
+async function leave(name: string, message = "원래 메시지", password = "1234") {
+  const result = await guestbook.create({ name, message, password });
+  if (!result.ok) throw new Error("테스트 준비 실패: 유효한 입력이어야 한다");
+  return result.entry;
+}
+
+describe("메시지 수정", () => {
+  it("맞는 비밀번호로 수정하면 메시지가 바뀌고 수정됨이 되며, 이름과 작성 시각은 그대로다", async () => {
+    const entry = await leave("이주표");
+    advance(10);
+
+    const result = await guestbook.edit(entry.id, { message: "고친 메시지", password: "1234" });
+
+    expect(result.ok).toBe(true);
+    const [edited] = await guestbook.list();
+    expect(edited).toMatchObject({ id: entry.id, name: "이주표", message: "고친 메시지", createdAt: START, edited: true });
+  });
+
+  it("수정한 오래된 Entry는 목록에서 제자리를 지킨다", async () => {
+    const old = await leave("오래된 글");
+    advance(1);
+    await leave("새 글");
+    advance(1);
+
+    await guestbook.edit(old.id, { message: "고침", password: "1234" });
+
+    expect((await guestbook.list()).map((e) => e.name)).toEqual(["새 글", "오래된 글"]);
+  });
+
+  it("틀린 비밀번호는 거부되고 Entry는 바뀌지 않는다", async () => {
+    const entry = await leave("이주표", "원래 메시지", "right-pw");
+
+    const result = await guestbook.edit(entry.id, { message: "몰래 고침", password: "wrong-pw" });
+
+    expect(result).toEqual({ ok: false, reason: "wrong_password" });
+    expect((await guestbook.list())[0]).toMatchObject({ message: "원래 메시지", edited: false });
+  });
+
+  it("없는 Entry를 수정하면 not_found", async () => {
+    const result = await guestbook.edit(999, { message: "고침", password: "1234" });
+
+    expect(result).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it.each([
+    ["빈 메시지", ""],
+    ["공백뿐", "   "],
+    ["501자", "a".repeat(501)],
+  ])("메시지가 %s이면 수정이 거부되고 Entry는 바뀌지 않는다", async (_label, message) => {
+    const entry = await leave("이주표");
+
+    const result = await guestbook.edit(entry.id, { message, password: "1234" });
+
+    expect(result).toEqual({ ok: false, reason: "invalid", errors: { message: "메시지는 1~500자로 입력해 주세요." } });
+    expect((await guestbook.list())[0]).toMatchObject({ message: "원래 메시지", edited: false });
+  });
+
+  it("수정한 메시지도 앞뒤 공백이 지워져 저장된다", async () => {
+    const entry = await leave("이주표");
+
+    const result = await guestbook.edit(entry.id, { message: "  고친 메시지  ", password: "1234" });
+
+    expect(result).toMatchObject({ ok: true, entry: { message: "고친 메시지" } });
+  });
+});
