@@ -26,6 +26,8 @@ export type EditResult =
   | { ok: false; reason: "wrong_password" }
   | { ok: false; reason: "not_found" };
 
+export type RemoveResult = { ok: true } | { ok: false; reason: "wrong_password" | "not_found" };
+
 export type Guestbook = {
   /** 규칙을 어기면 아무것도 저장하지 않고 칸별 오류를 돌려준다. */
   create(input: EntryInput): Promise<CreateResult>;
@@ -33,6 +35,8 @@ export type Guestbook = {
   list(): Promise<Entry[]>;
   /** 글 비밀번호가 맞으면 메시지만 바꾼다. 이름·작성 시각은 그대로다. */
   edit(id: number, input: EditInput): Promise<EditResult>;
+  /** 글 비밀번호가 맞으면 Entry를 지운다. */
+  remove(id: number, password: string): Promise<RemoveResult>;
 };
 
 type Row = { id: number; name: string; message: string; created_at: Date; updated_at: Date | null };
@@ -78,6 +82,13 @@ function validate(input: EntryInput): { values: EntryInput; errors: FieldErrors 
 }
 
 export function createGuestbook(db: Db, clock: { now: () => Date } = { now: () => new Date() }): Guestbook {
+  /** 수정·삭제 공통: Entry가 있고 글 비밀번호가 맞는지 확인한다. */
+  async function authorize(id: number, password: string): Promise<"ok" | "wrong_password" | "not_found"> {
+    const [found] = await db.query<{ password_hash: string }>("select password_hash from entries where id = $1", [id]);
+    if (!found) return "not_found";
+    return (await verifyPassword(password, found.password_hash)) ? "ok" : "wrong_password";
+  }
+
   return {
     async create(input) {
       const { values, errors } = validate(input);
@@ -101,9 +112,8 @@ export function createGuestbook(db: Db, clock: { now: () => Date } = { now: () =
       const { message, error } = checkMessage(input.message);
       if (error) return { ok: false, reason: "invalid", errors: { message: error } };
 
-      const [found] = await db.query<{ password_hash: string }>("select password_hash from entries where id = $1", [id]);
-      if (!found) return { ok: false, reason: "not_found" };
-      if (!(await verifyPassword(input.password, found.password_hash))) return { ok: false, reason: "wrong_password" };
+      const auth = await authorize(id, input.password);
+      if (auth !== "ok") return { ok: false, reason: auth };
 
       // 비밀번호를 확인하는 사이에 지워졌다면 update가 아무 행도 돌려주지 않는다.
       const [row] = await db.query<Row>(
@@ -111,6 +121,14 @@ export function createGuestbook(db: Db, clock: { now: () => Date } = { now: () =
         [id, message, clock.now()],
       );
       return row ? { ok: true, entry: toEntry(row) } : { ok: false, reason: "not_found" };
+    },
+
+    async remove(id, password) {
+      const auth = await authorize(id, password);
+      if (auth !== "ok") return { ok: false, reason: auth };
+      // 비밀번호를 확인하는 사이에 이미 지워졌다면 지운 행이 없다.
+      const deleted = await db.query("delete from entries where id = $1 returning id", [id]);
+      return deleted.length > 0 ? { ok: true } : { ok: false, reason: "not_found" };
     },
   };
 }

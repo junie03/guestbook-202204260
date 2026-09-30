@@ -223,3 +223,35 @@ describe("메시지 수정", () => {
     expect(result).toMatchObject({ ok: true, entry: { message: "고친 메시지" } });
   });
 });
+
+describe("글 삭제", () => {
+  it("맞는 비밀번호로 삭제하면 목록에서 사라진다", async () => {
+    const gone = await leave("지울 글", "안녕", "right-pw");
+    await leave("남을 글");
+
+    const result = await guestbook.remove(gone.id, "right-pw");
+
+    expect(result).toEqual({ ok: true });
+    expect((await guestbook.list()).map((e) => e.name)).toEqual(["남을 글"]);
+  });
+
+  it("틀린 비밀번호는 거부되고 Entry는 남아 있다", async () => {
+    const entry = await leave("이주표", "안녕", "right-pw");
+
+    const result = await guestbook.remove(entry.id, "wrong-pw");
+
+    expect(result).toEqual({ ok: false, reason: "wrong_password" });
+    expect((await guestbook.list()).map((e) => e.id)).toEqual([entry.id]);
+  });
+
+  it("없는 Entry를 삭제하면 not_found", async () => {
+    expect(await guestbook.remove(999, "1234")).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("이미 삭제한 Entry를 다시 삭제하면 not_found", async () => {
+    const entry = await leave("이주표");
+    await guestbook.remove(entry.id, "1234");
+
+    expect(await guestbook.remove(entry.id, "1234")).toEqual({ ok: false, reason: "not_found" });
+  });
+});

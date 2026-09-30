@@ -3,10 +3,11 @@
 import { useCallback, useState } from "react";
 import type { Entry } from "@/lib/guestbook";
 import { formatKst } from "@/lib/kst";
+import { DeleteForm } from "./delete-form";
 import { EditForm } from "./edit-form";
 import { subtleButton } from "./ui";
 
-type Mode = "view" | "edit";
+type Mode = "view" | "edit" | "delete";
 
 export function EntryItem({ entry }: { entry: Entry }) {
   const [mode, setMode] = useState<Mode>("view");
@@ -26,11 +27,18 @@ export function EntryItem({ entry }: { entry: Entry }) {
       ) : (
         <>
           <p className="whitespace-pre-wrap break-words text-sm">{entry.message}</p>
-          <div className="flex justify-end gap-1">
-            <button type="button" onClick={() => setMode("edit")} className={subtleButton}>
-              수정
-            </button>
-          </div>
+          {mode === "delete" ? (
+            <DeleteForm entryId={entry.id} onClose={close} />
+          ) : (
+            <div className="flex justify-end gap-1">
+              <button type="button" onClick={() => setMode("edit")} className={subtleButton}>
+                수정
+              </button>
+              <button type="button" onClick={() => setMode("delete")} className={subtleButton}>
+                삭제
+              </button>
+            </div>
+          )}
         </>
       )}
     </li>
