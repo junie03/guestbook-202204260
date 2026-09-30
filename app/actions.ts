@@ -6,13 +6,14 @@ import { getGuestbook } from "@/lib/server";
 
 export type CreateState = { status: "idle" } | { status: "created" } | { status: "invalid"; errors: FieldErrors };
 
-const text = (formData: FormData, key: string) => String(formData.get(key) ?? "");
+/** 폼 칸의 값을 문자열로 꺼낸다. 칸이 없으면 빈 문자열이고, 도메인 모듈이 규칙에 따라 거부한다. */
+const formField = (formData: FormData, key: string) => String(formData.get(key) ?? "");
 
 export async function createEntryAction(_prev: CreateState, formData: FormData): Promise<CreateState> {
   const result = await getGuestbook().create({
-    name: text(formData, "name"),
-    message: text(formData, "message"),
-    password: text(formData, "password"),
+    name: formField(formData, "name"),
+    message: formField(formData, "message"),
+    password: formField(formData, "password"),
   });
   if (!result.ok) return { status: "invalid", errors: result.errors };
   revalidatePath("/");
@@ -28,8 +29,8 @@ export type EditState =
 
 export async function editEntryAction(id: number, _prev: EditState, formData: FormData): Promise<EditState> {
   const result = await getGuestbook().edit(id, {
-    message: text(formData, "message"),
-    password: text(formData, "password"),
+    message: formField(formData, "message"),
+    password: formField(formData, "password"),
   });
   if (result.ok) {
     revalidatePath("/");
@@ -43,7 +44,7 @@ export async function editEntryAction(id: number, _prev: EditState, formData: Fo
 export type DeleteState = { status: "idle" } | { status: "wrong_password" } | { status: "not_found" };
 
 export async function deleteEntryAction(id: number, _prev: DeleteState, formData: FormData): Promise<DeleteState> {
-  const result = await getGuestbook().remove(id, text(formData, "password"));
+  const result = await getGuestbook().remove(id, formField(formData, "password"));
   if (result.ok) {
     // 재검증된 목록에서 Entry가 사라지므로 따로 돌려줄 상태가 없다.
     revalidatePath("/");

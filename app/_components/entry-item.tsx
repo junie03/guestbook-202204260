@@ -5,7 +5,7 @@ import type { Entry } from "@/lib/guestbook";
 import { formatKst } from "@/lib/kst";
 import { DeleteForm } from "./delete-form";
 import { EditForm } from "./edit-form";
-import { subtleButton } from "./ui";
+import { subtleButtonClass } from "./ui";
 
 type Mode = "view" | "edit" | "delete";
 
@@ -31,10 +31,10 @@ export function EntryItem({ entry }: { entry: Entry }) {
             <DeleteForm entryId={entry.id} onClose={close} />
           ) : (
             <div className="flex justify-end gap-1">
-              <button type="button" onClick={() => setMode("edit")} className={subtleButton}>
+              <button type="button" onClick={() => setMode("edit")} className={subtleButtonClass}>
                 수정
               </button>
-              <button type="button" onClick={() => setMode("delete")} className={subtleButton}>
+              <button type="button" onClick={() => setMode("delete")} className={subtleButtonClass}>
                 삭제
               </button>
             </div>

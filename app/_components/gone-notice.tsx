@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { subtleButton } from "./ui";
+import { subtleButtonClass } from "./ui";
 
 const REFRESH_DELAY_MS = 3000;
 
@@ -18,7 +18,7 @@ export function GoneNotice() {
   return (
     <div role="alert" className="flex items-center justify-between gap-3 text-sm text-red-600 dark:text-red-400">
       <span>이미 삭제된 글입니다.</span>
-      <button type="button" onClick={() => router.refresh()} className={subtleButton}>
+      <button type="button" onClick={() => router.refresh()} className={subtleButtonClass}>
         확인
       </button>
     </div>

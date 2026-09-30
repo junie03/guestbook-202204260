@@ -1,3 +1,4 @@
+import "server-only";
 import type { Db } from "./db";
 import { hashPassword, verifyPassword } from "./password";
 
@@ -53,12 +54,17 @@ function toEntry(row: Row): Entry {
   };
 }
 
+const MAX_INTEGER = 2 ** 31 - 1;
+
+/** Postgres integer 기본키가 될 수 있는 값인가 */
+const isEntryId = (id: unknown): id is number => Number.isInteger(id) && (id as number) >= 1 && (id as number) <= MAX_INTEGER;
+
 /** 글자 수는 코드포인트로 센다: 한글·이모지 한 글자가 1자 */
 const length = (value: string) => [...value].length;
 
 const within = (value: string, min: number, max: number) => length(value) >= min && length(value) <= max;
 
-const MESSAGES = {
+const RULE_ERRORS = {
   name: "이름은 1~20자로 입력해 주세요.",
   message: "메시지는 1~500자로 입력해 주세요.",
   password: "비밀번호는 4~30자로 입력해 주세요.",
@@ -67,7 +73,7 @@ const MESSAGES = {
 /** 메시지 규칙: 작성과 수정이 함께 쓴다. 앞뒤 공백을 지운 값과, 어겼다면 안내 문구를 돌려준다. */
 function checkMessage(raw: string): { message: string; error?: string } {
   const message = raw.trim();
-  return within(message, 1, 500) ? { message } : { message, error: MESSAGES.message };
+  return within(message, 1, 500) ? { message } : { message, error: RULE_ERRORS.message };
 }
 
 /** 이름·메시지는 앞뒤 공백을 지운 뒤 검사하고, 비밀번호는 공백까지 그대로 검사한다. */
@@ -75,15 +81,17 @@ function validate(input: EntryInput): { values: EntryInput; errors: FieldErrors 
   const { message, error: messageError } = checkMessage(input.message);
   const values = { name: input.name.trim(), message, password: input.password };
   const errors: FieldErrors = {};
-  if (!within(values.name, 1, 20)) errors.name = MESSAGES.name;
+  if (!within(values.name, 1, 20)) errors.name = RULE_ERRORS.name;
   if (messageError) errors.message = messageError;
-  if (!within(values.password, 4, 30)) errors.password = MESSAGES.password;
+  if (!within(values.password, 4, 30)) errors.password = RULE_ERRORS.password;
   return { values, errors };
 }
 
 export function createGuestbook(db: Db, clock: { now: () => Date } = { now: () => new Date() }): Guestbook {
   /** 수정·삭제 공통: Entry가 있고 글 비밀번호가 맞는지 확인한다. */
   async function authorize(id: number, password: string): Promise<"ok" | "wrong_password" | "not_found"> {
+    // id는 클라이언트가 조작할 수 있는 값이다. entries.id(integer)가 될 수 없는 값은 없는 글로 다룬다.
+    if (!isEntryId(id)) return "not_found";
     const [found] = await db.query<{ password_hash: string }>("select password_hash from entries where id = $1", [id]);
     if (!found) return "not_found";
     return (await verifyPassword(password, found.password_hash)) ? "ok" : "wrong_password";
@@ -109,11 +117,12 @@ export function createGuestbook(db: Db, clock: { now: () => Date } = { now: () =
     },
 
     async edit(id, input) {
-      const { message, error } = checkMessage(input.message);
-      if (error) return { ok: false, reason: "invalid", errors: { message: error } };
-
+      // 글이 있는지·비밀번호가 맞는지를 먼저 알린다: 이미 지워진 글에 메시지 규칙 안내를 보여주지 않는다.
       const auth = await authorize(id, input.password);
       if (auth !== "ok") return { ok: false, reason: auth };
+
+      const { message, error } = checkMessage(input.message);
+      if (error) return { ok: false, reason: "invalid", errors: { message: error } };
 
       // 비밀번호를 확인하는 사이에 지워졌다면 update가 아무 행도 돌려주지 않는다.
       const [row] = await db.query<Row>(

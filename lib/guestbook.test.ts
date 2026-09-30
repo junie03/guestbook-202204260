@@ -255,3 +255,36 @@ describe("글 삭제", () => {
     expect(await guestbook.remove(entry.id, "1234")).toEqual({ ok: false, reason: "not_found" });
   });
 });
+
+describe("잘못된 글 번호", () => {
+  // Server Action의 인자는 클라이언트가 조작할 수 있으므로, 정수가 아닌 id도 없는 글로 다룬다.
+  const badIds = [Number.NaN, 1.5, 0, -1, 2 ** 31, "1; drop table entries" as unknown as number];
+
+  it.each(badIds)("id %s로 수정하면 not_found", async (id) => {
+    await leave("이주표");
+
+    expect(await guestbook.edit(id, { message: "고침", password: "1234" })).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it.each(badIds)("id %s로 삭제하면 not_found", async (id) => {
+    await leave("이주표");
+
+    expect(await guestbook.remove(id, "1234")).toEqual({ ok: false, reason: "not_found" });
+    expect(await guestbook.list()).toHaveLength(1);
+  });
+});
+
+describe("수정 검사 순서", () => {
+  it("이미 삭제된 글은 메시지가 비어 있어도 not_found를 먼저 알린다", async () => {
+    const entry = await leave("이주표");
+    await guestbook.remove(entry.id, "1234");
+
+    expect(await guestbook.edit(entry.id, { message: "", password: "1234" })).toEqual({ ok: false, reason: "not_found" });
+  });
+
+  it("비밀번호가 틀리면 메시지가 비어 있어도 wrong_password를 먼저 알린다", async () => {
+    const entry = await leave("이주표");
+
+    expect(await guestbook.edit(entry.id, { message: "", password: "wrong" })).toEqual({ ok: false, reason: "wrong_password" });
+  });
+});

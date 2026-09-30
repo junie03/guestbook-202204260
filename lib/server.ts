@@ -1,3 +1,4 @@
+import "server-only";
 import { neonDb } from "./db";
 import { createGuestbook, type Guestbook } from "./guestbook";
 
