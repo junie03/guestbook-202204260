@@ -81,3 +81,78 @@ describe("글 비밀번호 저장", () => {
     expect(rows[0].password_hash).not.toBe(rows[1].password_hash);
   });
 });
+
+describe("입력값 검증", () => {
+  const valid = { name: "이주표", message: "안녕하세요", password: "1234" };
+
+  it("이름이 비어 있으면 거부되고 아무것도 저장되지 않는다", async () => {
+    const result = await guestbook.create({ ...valid, name: "" });
+
+    expect(result).toEqual({ ok: false, errors: { name: "이름은 1~20자로 입력해 주세요." } });
+    expect(await guestbook.list()).toEqual([]);
+  });
+
+  const NAME_ERROR = { name: "이름은 1~20자로 입력해 주세요." };
+  const MESSAGE_ERROR = { message: "메시지는 1~500자로 입력해 주세요." };
+  const PASSWORD_ERROR = { password: "비밀번호는 4~30자로 입력해 주세요." };
+
+  it.each([
+    ["이름 1자", { name: "a" }],
+    ["이름 20자", { name: "a".repeat(20) }],
+    ["메시지 1자", { message: "a" }],
+    ["메시지 500자", { message: "a".repeat(500) }],
+    ["비밀번호 4자", { password: "abcd" }],
+    ["비밀번호 30자", { password: "a".repeat(30) }],
+  ])("%s: 허용", async (_label, override) => {
+    const result = await guestbook.create({ ...valid, ...override });
+
+    expect(result.ok).toBe(true);
+  });
+
+  it.each([
+    ["이름 21자", { name: "a".repeat(21) }, NAME_ERROR],
+    ["메시지 0자", { message: "" }, MESSAGE_ERROR],
+    ["메시지 501자", { message: "a".repeat(501) }, MESSAGE_ERROR],
+    ["비밀번호 3자", { password: "abc" }, PASSWORD_ERROR],
+    ["비밀번호 31자", { password: "a".repeat(31) }, PASSWORD_ERROR],
+  ])("%s: 거부", async (_label, override, errors) => {
+    const result = await guestbook.create({ ...valid, ...override });
+
+    expect(result).toEqual({ ok: false, errors });
+    expect(await guestbook.list()).toEqual([]);
+  });
+
+  it("여러 칸이 틀리면 칸마다 오류를 돌려준다", async () => {
+    const result = await guestbook.create({ name: "", message: "", password: "" });
+
+    expect(result).toEqual({ ok: false, errors: { ...NAME_ERROR, ...MESSAGE_ERROR, ...PASSWORD_ERROR } });
+  });
+
+  it("공백만 입력한 이름·메시지는 빈 값으로 거부된다", async () => {
+    const result = await guestbook.create({ ...valid, name: "   ", message: " \n\t " });
+
+    expect(result).toEqual({ ok: false, errors: { ...NAME_ERROR, ...MESSAGE_ERROR } });
+  });
+
+  it("이름·메시지의 앞뒤 공백은 지워져 저장되고, 메시지 안의 줄바꿈은 남는다", async () => {
+    await guestbook.create({ ...valid, name: "  이주표  ", message: "\n  첫 줄\n둘째 줄  \n" });
+
+    const [entry] = await guestbook.list();
+
+    expect(entry).toMatchObject({ name: "이주표", message: "첫 줄\n둘째 줄" });
+  });
+
+  it("한글은 한 글자를 1자로 센다", async () => {
+    const twenty = "가".repeat(20);
+
+    expect((await guestbook.create({ ...valid, name: twenty })).ok).toBe(true);
+    expect(await guestbook.create({ ...valid, name: twenty + "가" })).toEqual({ ok: false, errors: NAME_ERROR });
+  });
+
+  it("비밀번호는 공백을 지우지 않고 그대로 센다", async () => {
+    // 공백 4개도 4자짜리 비밀번호다
+    expect((await guestbook.create({ ...valid, password: "    " })).ok).toBe(true);
+    // " ab "는 4자로 허용되지만, 공백을 지운 "ab"로 세면 거부되었을 것이다
+    expect((await guestbook.create({ ...valid, password: " ab " })).ok).toBe(true);
+  });
+});

@@ -4,3 +4,13 @@ export const button =
   "rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300";
 export const subtleButton =
   "rounded-md px-2 py-1 text-xs text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100";
+
+/** 입력칸 아래에 붙는 빨간 안내 문구. 없으면 아무것도 그리지 않는다. */
+export function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return (
+    <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+      {message}
+    </p>
+  );
+}
